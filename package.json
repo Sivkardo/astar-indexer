@@ -1,0 +1,12 @@
+{
+    "name": "astar-indexer",
+    "version": "1.0.0",
+    "main": "indexer.js",
+    "license": "Apache-2.0",
+    "scripts": {
+        "start": "node indexer.js"
+    },
+    "dependencies": {
+        "@polkadot/api": "^10.4.1"
+    }
+}
