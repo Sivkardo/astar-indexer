@@ -2,6 +2,7 @@
 const { ApiPromise, WsProvider } = require('@polkadot/api')
 
 const fs = require("fs");
+const yargs = require("yargs");
 
 const filename = "output.txt";
 const decimals = 10e17;
@@ -30,13 +31,18 @@ async function connectApi(endpoint) {
  * @param {*} stride 
  * @returns 
  */
-async function fetchIssuancePerBlock(api, beginBlockNum, endBlockNum, stride) {
+async function fetchIssuancePerBlock(args) {
 
-  var currentBlockNum = beginBlockNum;
+  console.info(`Inside fetch`);
 
+  const api = await connectApi(args.endpoint);
+  var currentBlockNum = parseInt(args.beginBlockNum);
   var blockIssuanceDic = {};
 
-  while(currentBlockNum <= endBlockNum) {
+  const end = parseInt(args.endBlockNum);
+  const str = parseInt(args.stride);
+
+  while(currentBlockNum <= end) {
 
     // Fetch hash of current block
     const currentBlockHash = await api.rpc.chain.getBlockHash(currentBlockNum);
@@ -53,7 +59,8 @@ async function fetchIssuancePerBlock(api, beginBlockNum, endBlockNum, stride) {
 
     blockIssuanceDic[currentBlockNum] = currentBlockIssuance;
 
-    currentBlockNum += stride;
+    currentBlockNum += str;
+    console.info(`Next block num: ${currentBlockNum}`);
   }
 
   fs.writeFileSync(filename, JSON.stringify(blockIssuanceDic));
@@ -64,10 +71,15 @@ async function fetchIssuancePerBlock(api, beginBlockNum, endBlockNum, stride) {
 /**
  * 
  */
-function drawGraph(filename) {
+async function drawGraph(args) {
+
+    console.log(args)
+
+    console.info(`Inside drawGraph`);
 
     // TODO
     // error handling
+    await fetchIssuancePerBlock(args);
     const data = JSON.parse(fs.readFileSync(filename));
 
     console.log(data);
@@ -75,12 +87,56 @@ function drawGraph(filename) {
 }
 
 
-const main = async function () {
+async function main() {
+
+    //TODO
+    // make drawGraph the default function
+    // add descriptions
+    await yargs
+      .options({
+        endpoint: {
+            alias: 'e',
+            default: 'wss://rpc.astar.network',
+            string: true,
+            global: true
+        },
+        beginBlockNum: {
+            alias: 'beg',
+            default: '4932602',
+            string: false,
+            gobal: true
+        },
+        endBlockNum: {
+          alias: 'end',
+          default: '5119443',
+          string: false,
+          gobal: true
+        },
+        stride: {
+          alias: 's',
+          default: '1000',
+          string: false,
+          gobal: true
+        }
+      })
+      .command(
+        ["draw"],
+        "Draw",
+        {},
+        drawGraph
+      )
+      .parse();
+
+      console.info(`Inside main`);
+
+      drawGraph(yargs);
+    /*
     const endpoint = 'wss://rpc.astar.network';
     const api = await connectApi(endpoint);
 
     await fetchIssuancePerBlock(api, 4933602, 4947444, 800);
     drawGraph(filename);
+    */
 
 };
 
