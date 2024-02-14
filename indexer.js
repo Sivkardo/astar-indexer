@@ -45,7 +45,7 @@ async function fetchIssuancePerBlock(api, beginBlockNum, endBlockNum, stride) {
     const apiAtCurrentBlock = await api.at(currentBlockHash);
 
     // Fetches the issuance of current block
-    const currentBlockIssuance = Math.floor((await api.query.balances.totalIssuance()) / decimals);
+    const currentBlockIssuance = Math.floor((await apiAtCurrentBlock.query.balances.totalIssuance()) / decimals);
 
     console.info(`Current block number: ${currentBlockNum}`);
     console.info(`Current block hash: ${currentBlockHash}`);
@@ -66,6 +66,8 @@ async function fetchIssuancePerBlock(api, beginBlockNum, endBlockNum, stride) {
  */
 function drawGraph(filename) {
 
+    // TODO
+    // error handling
     const data = JSON.parse(fs.readFileSync(filename));
 
     console.log(data);
