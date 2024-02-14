@@ -1,6 +1,12 @@
 
 const { ApiPromise, WsProvider } = require('@polkadot/api')
 
+const fs = require("fs");
+
+const filename = "output.txt";
+const decimals = 10e17;
+
+
 // TODO
 // ##### ADD YARGS #### 
 
@@ -28,30 +34,42 @@ async function fetchIssuancePerBlock(api, beginBlockNum, endBlockNum, stride) {
 
   var currentBlockNum = beginBlockNum;
 
-  // TODO
-  // NAME IT BETTER
-  var dictionary = {};
+  var blockIssuanceDic = {};
 
   while(currentBlockNum <= endBlockNum) {
 
     // Fetch hash of current block
     const currentBlockHash = await api.rpc.chain.getBlockHash(currentBlockNum);
-
+    
     // Fetch api for current block, allows us to fetch the issuance of current block
     const apiAtCurrentBlock = await api.at(currentBlockHash);
 
     // Fetches the issuance of current block
-    const currentBlockIssuance = await api.query.balances.totalIssuance();
+    const currentBlockIssuance = Math.floor((await api.query.balances.totalIssuance()) / decimals);
 
-    // Save block number and corresponding issuance into a map (???)
-    // Save it into a JSON file (???)
-    // TODO
-    dictionary[currentBlockNum] = currentBlockIssuance;
+    console.info(`Current block number: ${currentBlockNum}`);
+    console.info(`Current block hash: ${currentBlockHash}`);
+    console.info(`Issuance of current block: ${currentBlockIssuance}\n`);
+
+    blockIssuanceDic[currentBlockNum] = currentBlockIssuance;
 
     currentBlockNum += stride;
   }
 
-  return dictionary;
+  fs.writeFileSync(filename, JSON.stringify(blockIssuanceDic));
+
+  return blockIssuanceDic;
+}
+
+/**
+ * 
+ */
+function drawGraph(filename) {
+
+    const data = JSON.parse(fs.readFileSync(filename));
+
+    console.log(data);
+
 }
 
 
@@ -59,29 +77,9 @@ const main = async function () {
     const endpoint = 'wss://rpc.astar.network';
     const api = await connectApi(endpoint);
 
-    //const blockNum = 4932602;
+    await fetchIssuancePerBlock(api, 4933602, 4947444, 800);
+    drawGraph(filename);
 
-    const res = await fetchIssuancePerBlock(api, 4932602, 4934444, 100);
-
-    console.log(`Dictionary => ${Object.values(res)}`);
-
-  /*
-    const [block] = await Promise.all([
-        api.rpc.chain.getBlockHash(blockNum)
-    ]);
-
-    const actualTotal = await api.query.balances.totalIssuance();
-
-    const apiAt = await api.at(block);
-    const specificTotal = await apiAt.query.balances.totalIssuance();
-
-    const diff = actualTotal - specificTotal;
-
-
-    console.log(`Total issuance: ${actualTotal}`);
-    console.log(`Issuance at block ${blockNum} => ${specificTotal}`)
-    console.log(`Issued after block ${blockNum} => ${diff}`);
-    */
 };
 
 main()
