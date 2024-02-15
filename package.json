@@ -8,6 +8,8 @@
     },
     "dependencies": {
         "@polkadot/api": "^10.4.1",
+        "canvas": "^2.11.2",
+        "open": "^10.0.3",
         "yargs": "^17.6.0"
     }
 }
