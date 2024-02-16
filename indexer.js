@@ -2,7 +2,8 @@
 const { ApiPromise, WsProvider } = require('@polkadot/api')
 const fs = require("fs");
 const yargs = require("yargs");
-const can = require("canvas");
+const { Chart } = require("chart.js/auto")
+const canv = require("canvas");
 
 const filename = "output.txt";
 const documentName = "graph.html"
@@ -69,34 +70,73 @@ async function fetchIssuancePerBlock(args) {
 
 /**
  * TODO
+ * @param {*} data 
  */
 function createGraphHTML(data) {
 
-  // TODO
-  // everything
-  const canvas = can.createCanvas(1200, 800);
-  const context = canvas.getContext('2d');
+  const labels = Object.keys(data);
+  const datapoints = Object.values(data); 
 
-  const GRAPH_TOP = 60;
-  const GRAPH_BOTTOM = 740;
-  const GRAPH_LEFT = 60;
-  const GRAPH_RIGHT = 1240;
+  const chartData = {
+    labels: labels,
+    datasets: [
+      {
+        data: datapoints,
+        fill: false
+      }
+    ]
+  }
 
-  const GRAPH_HEIGHT = 680;
-  const GRAPH_WIDTH = 1180;
+  const chartConfig = {
+    type: 'line',
+    data: chartData,
+    options: {
+      responsive: true,
+      plugins: {
+        title: {
+          display: true,
+          text: 'Astar Token Issuance'
+        },
+        legend: {
+          display: false
+        },
+        interaction: {
+          intersect: false
+        }
+      },
+      tooltips: {
+        mode: 'index',
+        intersect: false
+      },
+      hover: {
+          mode: 'nearest',
+          intersect: true
+      },
+      scales: {
+        x: {
+          display: true,
+          title: {
+            display: true,
+            text: 'Block Number'
+          }
+        },
+        y: {
+          display: true,
+          title: {
+            display: true,
+            text: 'Issued Tokens'
+          }
+        }
+      }
+    },
+  };
 
-  // Draw X and Y axis
-  context.beginPath();
-  context.moveTo(GRAPH_LEFT, GRAPH_TOP);
-  context.lineTo(GRAPH_LEFT, GRAPH_BOTTOM);
-  context.lineTo(GRAPH_RIGHT, GRAPH_BOTTOM);
-  context.stroke();
-
+  const canvas = canv.createCanvas(1000, 800);
+  const ctx = canvas.getContext('2d');
   
+  new Chart(ctx, chartConfig);
 
-
-  // Serialize the canvas to a data URL
-  const dataUrl = canvas.toDataURL();
+  const dataURL = canvas.toDataURL();
 
   const contents = `
     <!DOCTYPE html>
@@ -107,8 +147,10 @@ function createGraphHTML(data) {
         <title>Astar Issuance Graph</title>
     </head>
     <body>
-        <h1>Graph yes yes!</h1>
-        <img src="${dataUrl}" alt="Canvas Image">
+        <h1>Issuance graph</h1>
+        <div style="width: 1000px;">
+            <img src="${dataURL}" alt="Chart">
+        </div>
     </body>
     </html>
   `;
@@ -134,7 +176,7 @@ async function drawGraph(args) {
     }
     */
 
-    createGraphHTML();
+    createGraphHTML(data);
 
     // TODO
     // open HTML file
