@@ -40,27 +40,36 @@ async function fetchIssuancePerBlock(args) {
   const end = parseInt(args.endBlockNum);
   const str = parseInt(args.stride);
 
-  while(currentBlockNum <= end) {
 
-    // Fetch hash of current block
-    const currentBlockHash = await api.rpc.chain.getBlockHash(currentBlockNum);
-    
-    // Fetch api for current block, allows us to fetch the issuance of current block
-    const apiAtCurrentBlock = await api.at(currentBlockHash);
+  // Fetch all block hashes
+  var blockHashesPromises = [];
+  for(var i = currentBlockNum; i <= end; i += str) {
+    blockHashesPromises.push(api.rpc.chain.getBlockHash(i));
+  }
+  const blockHashes = await Promise.all(blockHashesPromises);
 
-    // Fetches the issuance of current block
-    const currentBlockIssuance = Math.floor((await apiAtCurrentBlock.query.balances.totalIssuance()) / decimals);
+  // Fetch all api at specific block hashes
+  var apiAtCurrentBlockPromises = [];
+  for(var i = 0 ; i < blockHashes.length; i++) {
+    apiAtCurrentBlockPromises.push(api.at(blockHashes[i]));
+  }
+  const apiAtCurrentBlock = await Promise.all(apiAtCurrentBlockPromises);
 
-    /*
-    console.info(`Current block number: ${currentBlockNum}`);
-    console.info(`Current block hash: ${currentBlockHash}`);
-    console.info(`Issuance of current block: ${currentBlockIssuance}\n`);
-    */
 
-    blockIssuanceDic[currentBlockNum] = currentBlockIssuance;
+  // Fetch issuance at specific blocks
+  var currentBlockIssuancePromises = [];
+  for(var i = 0; i < apiAtCurrentBlock.length; i++) {
+    currentBlockIssuancePromises.push(apiAtCurrentBlock[i].query.balances.totalIssuance());
+  }
+  const currentBlockIssuance = await Promise.all(currentBlockIssuancePromises.map(async (promise) => {
+    const issuance = await promise;
+    return Math.floor(issuance / decimals);
+  }));
 
-    currentBlockNum += str;
-    console.info(`Next block num: ${currentBlockNum}`);
+
+  for(var i = 0; i < currentBlockIssuance.length; i++) {
+    //console.log(`Block number: ${currentBlockNum + (i * str)}    Issuance: ${currentBlockIssuance[i]}`);
+    blockIssuanceDic[currentBlockNum + (i * str)] = currentBlockIssuance[i];
   }
 
   fs.writeFileSync(filename, JSON.stringify(blockIssuanceDic));
