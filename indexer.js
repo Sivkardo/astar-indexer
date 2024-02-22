@@ -42,6 +42,7 @@ async function fetchIssuancePerBlock(args) {
 
 
   // Fetch all block hashes
+  console.info(`Fetching block hashes...`)
   var blockHashesPromises = [];
   for(var i = currentBlockNum; i <= end; i += str) {
     blockHashesPromises.push(api.rpc.chain.getBlockHash(i));
@@ -49,6 +50,7 @@ async function fetchIssuancePerBlock(args) {
   const blockHashes = await Promise.all(blockHashesPromises);
 
   // Fetch all api at specific block hashes
+  console.info(`Fetching specific block api...`)
   var apiAtCurrentBlockPromises = [];
   for(var i = 0 ; i < blockHashes.length; i++) {
     apiAtCurrentBlockPromises.push(api.at(blockHashes[i]));
@@ -57,6 +59,7 @@ async function fetchIssuancePerBlock(args) {
 
 
   // Fetch issuance at specific blocks
+  console.info(`Fetching issuance for specific block...`);
   var currentBlockIssuancePromises = [];
   for(var i = 0; i < apiAtCurrentBlock.length; i++) {
     currentBlockIssuancePromises.push(apiAtCurrentBlock[i].query.balances.totalIssuance());
@@ -118,8 +121,8 @@ function createGraphHTML(data) {
         intersect: false
       },
       hover: {
-          mode: 'nearest',
-          intersect: true
+          mode: 'index',
+          intersect: false
       },
       scales: {
         x: {
@@ -142,29 +145,44 @@ function createGraphHTML(data) {
 
   const canvas = canv.createCanvas(1000, 800);
   const ctx = canvas.getContext('2d');
-  
-  new Chart(ctx, chartConfig);
-
-  const dataURL = canvas.toDataURL();
 
   const contents = `
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="viewport", initial-scale=1.0">
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <title>Astar Issuance Graph</title>
+        <style>
+          body, html {
+            margin: 0 auto;
+            padding: 0 auto;
+            width: 95%;
+            height: 95%;
+          }
+          canvas {
+            display: block;
+            margin: 0 auto;
+            width: 95vw;
+            height: 95vw;
+          }
+        </style>
     </head>
     <body>
-        <h1>Issuance graph</h1>
-        <div style="width: 1000px;">
-            <img src="${dataURL}" alt="Chart">
+        <div>
+          <canvas id="myChart"></canvas>
         </div>
+        <script>
+            var ctx = document.getElementById('myChart').getContext('2d');
+            var myChart = new Chart(ctx, ${JSON.stringify(chartConfig)});
+        </script>
     </body>
     </html>
   `;
 
   fs.writeFileSync(documentName, contents);
+
 }
 
 /**
