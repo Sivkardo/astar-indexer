@@ -2,12 +2,16 @@
 const { ApiPromise, WsProvider } = require('@polkadot/api')
 const fs = require("fs");
 const yargs = require("yargs");
-const { Chart } = require("chart.js/auto")
+const Chart  = require("chart.js/auto")
 const canv = require("canvas");
+
 
 const filename = "output.txt";
 const documentName = "graph.html"
 const decimals = 10e17;
+
+// TODO (opis)
+const keyBlockNumbers = [4932602, 5119443, 5514934]
 
 
 
@@ -34,17 +38,17 @@ async function connectApi(endpoint) {
 async function fetchIssuancePerBlock(args) {
 
   const api = await connectApi(args.endpoint);
-  var currentBlockNum = parseInt(args.beginBlockNum);
-  var blockIssuanceDic = {};
 
+  var startBlockNum = parseInt(args.beginBlockNum);
   const end = parseInt(args.endBlockNum);
   const str = parseInt(args.stride);
 
+  var blockIssuanceDic = {};
 
   // Fetch all block hashes
   console.info(`Fetching block hashes...`)
   var blockHashesPromises = [];
-  for(var i = currentBlockNum; i <= end; i += str) {
+  for(var i = startBlockNum; i <= end; i += str) {
     blockHashesPromises.push(api.rpc.chain.getBlockHash(i));
   }
   const blockHashes = await Promise.all(blockHashesPromises);
@@ -72,19 +76,39 @@ async function fetchIssuancePerBlock(args) {
 
   for(var i = 0; i < currentBlockIssuance.length; i++) {
     //console.log(`Block number: ${currentBlockNum + (i * str)}    Issuance: ${currentBlockIssuance[i]}`);
-    blockIssuanceDic[currentBlockNum + (i * str)] = currentBlockIssuance[i];
+    blockIssuanceDic[startBlockNum + (i * str)] = currentBlockIssuance[i];
   }
+
+  var keyBlockPoints = [];
+  keyBlockPoints.push({x: `${startBlockNum}`, y: currentBlockIssuance[0]});
+  for (var i = 0; i < keyBlockNumbers.length; i++) {
+    console.log(`Checking block number  ${keyBlockNumbers[i]}`);
+    if(keyBlockNumbers[i] < startBlockNum || keyBlockNumbers[i] > end) break;
+    
+    const keyBlockHash = await api.rpc.chain.getBlockHash(keyBlockNumbers[i]);
+    const apiAtCurrentKeyBlock = await api.at(keyBlockHash);
+    const issuanceAtKeyBlock = Math.floor((await apiAtCurrentKeyBlock.query.balances.totalIssuance()) / decimals);
+
+    console.log(`Block number: ${keyBlockNumbers[i]}   Issuance: ${issuanceAtKeyBlock}`);
+
+    keyBlockPoints.push({x: `${keyBlockNumbers[i]}`, y: issuanceAtKeyBlock});
+    blockIssuanceDic[keyBlockNumbers[i]] = issuanceAtKeyBlock;
+  }
+
+  // BUG (need to change upper FOR LOOPS into WHILE LOOPS so that the actual ending block is included, regardless of stride)
+  keyBlockPoints.push({x: `${startBlockNum + str * (blockHashes.length - 1)}`, y: currentBlockIssuance[currentBlockIssuance.length - 1]});
+
 
   fs.writeFileSync(filename, JSON.stringify(blockIssuanceDic));
 
-  return blockIssuanceDic;
+  return [ blockIssuanceDic, keyBlockPoints];
 }
 
 /**
  * TODO
  * @param {*} data 
  */
-function createGraphHTML(data) {
+function createGraphHTML(data, keyPointData) {
 
   const labels = Object.keys(data);
   const datapoints = Object.values(data); 
@@ -94,7 +118,10 @@ function createGraphHTML(data) {
     datasets: [
       {
         data: datapoints,
-        fill: false
+        fill: false,
+      }, {
+        data: keyPointData,
+        fill: true,
       }
     ]
   }
@@ -114,6 +141,17 @@ function createGraphHTML(data) {
         },
         interaction: {
           intersect: false
+        },
+        zoom: {
+          zoom: {
+            wheel: {
+              enabled: true,
+            },
+            pinch: {
+              enabled: true
+            },
+            mode: 'xy',
+          }
         }
       },
       tooltips: {
@@ -145,6 +183,8 @@ function createGraphHTML(data) {
 
   const canvas = canv.createCanvas(1000, 800);
   const ctx = canvas.getContext('2d');
+
+  console.info(`Chart config contents: \n ${JSON.stringify(chartConfig)}`);
 
   const contents = `
     <!DOCTYPE html>
@@ -192,10 +232,15 @@ async function drawGraph(args) {
 
     // TODO
     // error handling
-    await fetchIssuancePerBlock(args);
+    [t, keyPoints] = await fetchIssuancePerBlock(args);
     const data = JSON.parse(fs.readFileSync(filename));
 
-    console.log(data)
+
+    const randomData = [{x: "1", y: 7000001432},
+                        {x: "3", y: 7000000899},
+                        {x: "5", y: 7000000366}];
+
+    console.log(data, keyPoints)
     
     /*
     for (const [num, issuance] of Object.entries(data)) {
@@ -203,7 +248,7 @@ async function drawGraph(args) {
     }
     */
 
-    createGraphHTML(data);
+    createGraphHTML(data, keyPoints);
 
     // TODO
     // open HTML file
