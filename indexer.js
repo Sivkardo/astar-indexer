@@ -2,7 +2,7 @@
 const { ApiPromise, WsProvider } = require('@polkadot/api')
 const fs = require("fs");
 const yargs = require("yargs");
-const Chart  = require("chart.js/auto")
+const Chart = require("chart.js/auto")
 const canv = require("canvas");
 
 
@@ -14,17 +14,16 @@ const decimals = 10e17;
 const keyBlockNumbers = [4932602, 5119443, 5514934]
 
 
-
 /**
  * TODO
  * @param {*} endpoint 
  * @returns 
  */
 async function connectApi(endpoint) {
-    const wsProvider = new WsProvider(endpoint);
-    const api = await ApiPromise.create({ provider: wsProvider });
-  
-    return api;
+  const wsProvider = new WsProvider(endpoint);
+  const api = await ApiPromise.create({ provider: wsProvider });
+
+  return api;
 }
 
 /**
@@ -39,6 +38,7 @@ async function fetchIssuancePerBlock(args) {
 
   const api = await connectApi(args.endpoint);
 
+  // TODO
   var startBlockNum = parseInt(args.beginBlockNum);
   const end = parseInt(args.endBlockNum);
   const str = parseInt(args.stride);
@@ -48,15 +48,20 @@ async function fetchIssuancePerBlock(args) {
   // Fetch all block hashes
   console.info(`Fetching block hashes...`)
   var blockHashesPromises = [];
-  for(var i = startBlockNum; i <= end; i += str) {
+  var i = startBlockNum;
+  for (; i <= end; i += str) {
     blockHashesPromises.push(api.rpc.chain.getBlockHash(i));
+  }
+  // Make sure the ending block is included (in case ending block is skipped due to stride)
+  if (i < end + str) {
+    blockHashesPromises.push(api.rpc.chain.getBlockHash(end));
   }
   const blockHashes = await Promise.all(blockHashesPromises);
 
   // Fetch all api at specific block hashes
   console.info(`Fetching specific block api...`)
   var apiAtCurrentBlockPromises = [];
-  for(var i = 0 ; i < blockHashes.length; i++) {
+  for (var i = 0; i < blockHashes.length; i++) {
     apiAtCurrentBlockPromises.push(api.at(blockHashes[i]));
   }
   const apiAtCurrentBlock = await Promise.all(apiAtCurrentBlockPromises);
@@ -65,7 +70,7 @@ async function fetchIssuancePerBlock(args) {
   // Fetch issuance at specific blocks
   console.info(`Fetching issuance for specific block...`);
   var currentBlockIssuancePromises = [];
-  for(var i = 0; i < apiAtCurrentBlock.length; i++) {
+  for (var i = 0; i < apiAtCurrentBlock.length; i++) {
     currentBlockIssuancePromises.push(apiAtCurrentBlock[i].query.balances.totalIssuance());
   }
   const currentBlockIssuance = await Promise.all(currentBlockIssuancePromises.map(async (promise) => {
@@ -74,34 +79,32 @@ async function fetchIssuancePerBlock(args) {
   }));
 
 
-  for(var i = 0; i < currentBlockIssuance.length; i++) {
+  for (var i = 0; i < currentBlockIssuance.length; i++) {
     //console.log(`Block number: ${currentBlockNum + (i * str)}    Issuance: ${currentBlockIssuance[i]}`);
     blockIssuanceDic[startBlockNum + (i * str)] = currentBlockIssuance[i];
   }
 
   var keyBlockPoints = [];
-  keyBlockPoints.push({x: `${startBlockNum}`, y: currentBlockIssuance[0]});
+  keyBlockPoints.push({ x: `${startBlockNum}`, y: currentBlockIssuance[0] });
   for (var i = 0; i < keyBlockNumbers.length; i++) {
     console.log(`Checking block number  ${keyBlockNumbers[i]}`);
-    if(keyBlockNumbers[i] < startBlockNum || keyBlockNumbers[i] > end) break;
-    
+    if (keyBlockNumbers[i] < startBlockNum || keyBlockNumbers[i] > end) break;
+
     const keyBlockHash = await api.rpc.chain.getBlockHash(keyBlockNumbers[i]);
     const apiAtCurrentKeyBlock = await api.at(keyBlockHash);
     const issuanceAtKeyBlock = Math.floor((await apiAtCurrentKeyBlock.query.balances.totalIssuance()) / decimals);
 
     console.log(`Block number: ${keyBlockNumbers[i]}   Issuance: ${issuanceAtKeyBlock}`);
 
-    keyBlockPoints.push({x: `${keyBlockNumbers[i]}`, y: issuanceAtKeyBlock});
-    blockIssuanceDic[keyBlockNumbers[i]] = issuanceAtKeyBlock;
+    keyBlockPoints.push({ x: `${keyBlockNumbers[i]}`, y: issuanceAtKeyBlock });
+    blockIssuanceDic[parseInt(keyBlockNumbers[i])] = issuanceAtKeyBlock;
   }
 
-  // BUG (need to change upper FOR LOOPS into WHILE LOOPS so that the actual ending block is included, regardless of stride)
-  keyBlockPoints.push({x: `${startBlockNum + str * (blockHashes.length - 1)}`, y: currentBlockIssuance[currentBlockIssuance.length - 1]});
-
+  keyBlockPoints.push({ x: `${startBlockNum + str * (blockHashes.length - 1)}`, y: currentBlockIssuance[currentBlockIssuance.length - 1] });
 
   fs.writeFileSync(filename, JSON.stringify(blockIssuanceDic));
 
-  return [ blockIssuanceDic, keyBlockPoints];
+  return [blockIssuanceDic, keyBlockPoints];
 }
 
 /**
@@ -111,7 +114,7 @@ async function fetchIssuancePerBlock(args) {
 function createGraphHTML(data, keyPointData) {
 
   const labels = Object.keys(data);
-  const datapoints = Object.values(data); 
+  const datapoints = Object.values(data);
 
   const chartData = {
     labels: labels,
@@ -119,6 +122,8 @@ function createGraphHTML(data, keyPointData) {
       {
         data: datapoints,
         fill: false,
+        borderDash: [5, 5],
+        fill: false
       }, {
         data: keyPointData,
         fill: true,
@@ -141,17 +146,11 @@ function createGraphHTML(data, keyPointData) {
         },
         interaction: {
           intersect: false
-        },
-        zoom: {
-          zoom: {
-            wheel: {
-              enabled: true,
-            },
-            pinch: {
-              enabled: true
-            },
-            mode: 'xy',
-          }
+        }
+      },
+      elements: {
+        point: {
+          radius: 0
         }
       },
       tooltips: {
@@ -159,11 +158,12 @@ function createGraphHTML(data, keyPointData) {
         intersect: false
       },
       hover: {
-          mode: 'index',
-          intersect: false
+        mode: 'index',
+        intersect: false
       },
       scales: {
         x: {
+          type: 'linear',
           display: true,
           title: {
             display: true,
@@ -171,6 +171,7 @@ function createGraphHTML(data, keyPointData) {
           }
         },
         y: {
+          type: 'linear',
           display: true,
           title: {
             display: true,
@@ -230,71 +231,64 @@ function createGraphHTML(data, keyPointData) {
  */
 async function drawGraph(args) {
 
-    // TODO
-    // error handling
-    [t, keyPoints] = await fetchIssuancePerBlock(args);
-    const data = JSON.parse(fs.readFileSync(filename));
+  // TODO
+  // error handling
+  [t, keyPoints] = await fetchIssuancePerBlock(args);
+  const data = JSON.parse(fs.readFileSync(filename));
 
+  console.log(data, keyPoints)
 
-    const randomData = [{x: "1", y: 7000001432},
-                        {x: "3", y: 7000000899},
-                        {x: "5", y: 7000000366}];
+  /*
+  for (const [num, issuance] of Object.entries(data)) {
+    console.log(`Block number: ${num}   Issuance: ${issuance}`);
+  }
+  */
 
-    console.log(data, keyPoints)
-    
-    /*
-    for (const [num, issuance] of Object.entries(data)) {
-      console.log(`Block number: ${num}   Issuance: ${issuance}`);
-    }
-    */
+  createGraphHTML(data, keyPoints);
 
-    createGraphHTML(data, keyPoints);
-
-    // TODO
-    // open HTML file
 }
 
 
 async function main() {
 
-    await yargs
-      .options({
-        endpoint: {
-            alias: "e",
-            default: "wss://rpc.astar.network",
-            description: "WSS endpoint",
-            string: true,
-            global: true
-        },
-        beginBlockNum: {
-            alias: "beg",
-            default: "4932602",
-            description: "Number of the first block",
-            string: false,
-            gobal: true
-        },
-        endBlockNum: {
-          alias: "end",
-          default: "5119443",
-          description: "Number of the last block",
-          string: false,
-          gobal: true
-        },
-        stride: {
-          alias: "s",
-          default: "1000",
-          description: "Size of stride between checked blocks",
-          string: false,
-          gobal: true
-        }
-      })
-      .command(
-        ["draw"],
-        "Draw",
-        {},
-        drawGraph
-      )
-      .parse();
+  await yargs
+    .options({
+      endpoint: {
+        alias: "e",
+        default: "wss://rpc.astar.network",
+        description: "WSS endpoint",
+        string: true,
+        global: true
+      },
+      beginBlockNum: {
+        alias: "beg",
+        default: "4932602",
+        description: "Number of the first block",
+        string: false,
+        gobal: true
+      },
+      endBlockNum: {
+        alias: "end",
+        default: "5119443",
+        description: "Number of the last block",
+        string: false,
+        gobal: true
+      },
+      stride: {
+        alias: "s",
+        default: "1000",
+        description: "Size of stride between checked blocks",
+        string: false,
+        gobal: true
+      }
+    })
+    .command(
+      ["draw"],
+      "Draw",
+      {},
+      drawGraph
+    )
+    .parse();
 
 };
 
