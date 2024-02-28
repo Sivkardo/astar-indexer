@@ -168,7 +168,9 @@ function createGraphHTML(data, keyPointData) {
           title: {
             display: true,
             text: 'Block Number'
-          }
+          },
+          min: parseInt(labels[0]),
+          max: parseInt(labels[labels.length - 1])
         },
         y: {
           type: 'linear',
