@@ -5,19 +5,24 @@ const yargs = require("yargs");
 const Chart = require("chart.js/auto")
 const canv = require("canvas");
 
-
 const filename = "output.txt";
 const documentName = "graph.html"
 const decimals = 10e17;
 
-// TODO (opis)
-const keyBlockNumbers = [4932602, 5119443, 5514934]
+
+const keyBlockNumbers = [ 
+                          4932602, // New Fee System
+                          5119443, // Hybrid Inflation Model
+                          5514934  // Tokenomics 2.0
+                        ];
 
 
 /**
- * TODO
- * @param {*} endpoint 
- * @returns 
+ * 
+ * Connects to the API
+ * 
+ * @param {*} endpoint - endpoint to connect to
+ * @returns api
  */
 async function connectApi(endpoint) {
   const wsProvider = new WsProvider(endpoint);
@@ -27,22 +32,28 @@ async function connectApi(endpoint) {
 }
 
 /**
- * TODO
- * @param {*} api 
- * @param {*} beginBlockNum 
- * @param {*} endBlockNum 
- * @param {*} stride 
- * @returns 
+ *
+ * Fetches issuance per specific block
+ * 
+ * @param {*} api - API it connects to fetch data
+ * @param {*} beginBlockNum - number of starting block
+ * @param {*} endBlockNum - number of ending block
+ * @param {*} stride - steps between blocks
+ * @returns 2 element array - dictionary(key - block number, value - issuance), key block points array
  */
 async function fetchIssuancePerBlock(args) {
 
   const api = await connectApi(args.endpoint);
 
-  // TODO
-  var startBlockNum = parseInt(args.beginBlockNum);
+  const startBlockNum = parseInt(args.beginBlockNum);
   const end = parseInt(args.endBlockNum);
   const str = parseInt(args.stride);
 
+  // Check if user inputed proper block number interval range
+  if(startBlockNum >= end) {
+    throw new Error("Starting block number must be smaller than ending block number!");
+  }
+  
   var blockIssuanceDic = {};
 
   // Fetch all block hashes
@@ -80,21 +91,17 @@ async function fetchIssuancePerBlock(args) {
 
 
   for (var i = 0; i < currentBlockIssuance.length; i++) {
-    //console.log(`Block number: ${currentBlockNum + (i * str)}    Issuance: ${currentBlockIssuance[i]}`);
     blockIssuanceDic[startBlockNum + (i * str)] = currentBlockIssuance[i];
   }
 
   var keyBlockPoints = [];
   keyBlockPoints.push({ x: `${startBlockNum}`, y: currentBlockIssuance[0] });
   for (var i = 0; i < keyBlockNumbers.length; i++) {
-    console.log(`Checking block number  ${keyBlockNumbers[i]}`);
     if (keyBlockNumbers[i] < startBlockNum || keyBlockNumbers[i] > end) break;
 
     const keyBlockHash = await api.rpc.chain.getBlockHash(keyBlockNumbers[i]);
     const apiAtCurrentKeyBlock = await api.at(keyBlockHash);
     const issuanceAtKeyBlock = Math.floor((await apiAtCurrentKeyBlock.query.balances.totalIssuance()) / decimals);
-
-    console.log(`Block number: ${keyBlockNumbers[i]}   Issuance: ${issuanceAtKeyBlock}`);
 
     keyBlockPoints.push({ x: `${keyBlockNumbers[i]}`, y: issuanceAtKeyBlock });
     blockIssuanceDic[parseInt(keyBlockNumbers[i])] = issuanceAtKeyBlock;
@@ -108,8 +115,10 @@ async function fetchIssuancePerBlock(args) {
 }
 
 /**
- * TODO
- * @param {*} data 
+ * 
+ * Creates an HTML file using given data
+ * 
+ * @param {*} data - block number and issuance data
  */
 function createGraphHTML(data, keyPointData) {
 
@@ -184,10 +193,6 @@ function createGraphHTML(data, keyPointData) {
     },
   };
 
-  const canvas = canv.createCanvas(1000, 800);
-  const ctx = canvas.getContext('2d');
-
-  console.info(`Chart config contents: \n ${JSON.stringify(chartConfig)}`);
 
   const contents = `
     <!DOCTYPE html>
@@ -225,31 +230,18 @@ function createGraphHTML(data, keyPointData) {
   `;
 
   fs.writeFileSync(documentName, contents);
-
 }
 
 /**
- * TODO
+ * Calls functions for fetching issuance data and drawing a graph
  */
 async function drawGraph(args) {
 
-  // TODO
-  // error handling
-  [t, keyPoints] = await fetchIssuancePerBlock(args);
+  [_, keyPoints] = await fetchIssuancePerBlock(args);
   const data = JSON.parse(fs.readFileSync(filename));
 
-  console.log(data, keyPoints)
-
-  /*
-  for (const [num, issuance] of Object.entries(data)) {
-    console.log(`Block number: ${num}   Issuance: ${issuance}`);
-  }
-  */
-
   createGraphHTML(data, keyPoints);
-
 }
-
 
 async function main() {
 
