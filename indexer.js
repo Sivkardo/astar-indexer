@@ -8,12 +8,15 @@ const canv = require("canvas");
 const filename = "output.txt";
 const documentName = "graph.html"
 const decimals = 10e17;
+const initialIssuance = 7_000_000_000;
+const blocksMinedPerDay = 7200;
 
 
 const keyBlockData = {
   4932602: "New Fee System",
   5119443: "Hybrid Inflation",
-  5514934: "Tokenomics 2.0"
+  5514934: "Tokenomics 2.0- First Voting Subperiod",
+  5594134: "Tokenomics 2.0 - Build & Earn Subperiod"
 };
 
 
@@ -198,12 +201,24 @@ function createGraphHTML(data, keyPointData) {
 
   var text = "\"";
   for (var i = 2; i < keyPointData.length; i++) {
+
+    if (i == 2) {
+      var x1 = parseInt(labels[0]);
+      var y1 = parseInt(datapoints[0])
+      var x2 = parseInt(keyPointData[i - 1].x);
+      var y2 = parseInt(keyPointData[i - 1].y);
+
+      var slope = ((y2 - y1) / y1) / ((x2 - x1) / (365 * 7200)) * 100;
+
+      text = text.concat(`Old Fee System: ${x1} to ${x2} → ${slope}% grade<br><br> `);
+    }
+    
     var x1 = parseInt(keyPointData[i - 1].x);
     var y1 = parseInt(keyPointData[i - 1].y);
     var x2 = parseInt(keyPointData[i].x);
     var y2 = parseInt(keyPointData[i].y);
 
-    var slope = Math.round(((y2 - y1) / (x2 - x1)) * 10) / 100;
+    var slope = ((y2 - y1) / y1) / ((x2 - x1) / (365 * 7200)) * 100;
 
     text = text.concat(`${keyBlockData[x1]}: ${x1} to ${x2} → ${slope}% grade<br><br> `);
   }
@@ -251,21 +266,6 @@ function createGraphHTML(data, keyPointData) {
 
   fs.writeFileSync(documentName, contents);
 }
-
-/*
-          var text = "";
-            for(var i = 1; i < keyPointData.length - 1; i++) {
-                var x1 = keyPoinData[i - 1].x;
-                var y1 = keyPoinData[i - 1].y;
-                var x2 = keyPoinData[i].x;
-                var y2 = keyPoinData[i].y;
-
-                var slope = ((y2 - y1) / (x2 - x1)) * 100;
-                text = text.concat(x1).concat(" to ").concat(x2).concat(" → ").concat(slope).concat("%\n");
-            }
-
-            document.getElementById('slopeText').innerHTML = text;
-*/
 
 /**
  * Calls functions for fetching issuance data and drawing a graph
