@@ -2,20 +2,17 @@
 const { ApiPromise, WsProvider } = require('@polkadot/api')
 const fs = require("fs");
 const yargs = require("yargs");
-const Chart = require("chart.js/auto")
-const canv = require("canvas");
 
 const filename = "output.txt";
 const documentName = "graph.html"
 const decimals = 10e17;
-const initialIssuance = 7_000_000_000;
 const blocksMinedPerDay = 7200;
 
 
 const keyBlockData = {
   4932602: "New Fee System",
   5119443: "Hybrid Inflation",
-  5514934: "Tokenomics 2.0- First Voting Subperiod",
+  5514934: "Tokenomics 2.0 - First Voting Subperiod",
   5594134: "Tokenomics 2.0 - Build & Earn Subperiod"
 };
 
@@ -199,7 +196,18 @@ function createGraphHTML(data, keyPointData) {
     },
   };
 
-  var text = "\"";
+
+  var tableContents = `
+    <tr>
+      <th>Description</th>
+      <th>Init Block</th>
+      <th>Init Total Issuance</th>
+      <th>Final Block</th>
+      <th>Final Total Issuance</th>
+      <th>Grade</th>
+    </tr>
+  `;
+
   for (var i = 2; i < keyPointData.length; i++) {
 
     if (i == 2) {
@@ -208,21 +216,38 @@ function createGraphHTML(data, keyPointData) {
       var x2 = parseInt(keyPointData[i - 1].x);
       var y2 = parseInt(keyPointData[i - 1].y);
 
-      var slope = ((y2 - y1) / y1) / ((x2 - x1) / (365 * 7200)) * 100;
+      var slope = Math.round(((y2 - y1) / y1) / ((x2 - x1) / (365 * blocksMinedPerDay)) * 10000) / 100;
 
-      text = text.concat(`Old Fee System: ${x1} to ${x2} → ${slope}% grade<br><br> `);
+      tableContents = tableContents.concat(`
+        <tr>
+          <td>Old Fee System</td>
+          <td>${x1.toLocaleString()}</td>
+          <td>${y1.toLocaleString()}</td>
+          <td>${x2.toLocaleString()}</td>
+          <td>${y2.toLocaleString()}</td>
+          <td>${slope}%</td>
+        </tr>
+        `);
     }
-    
+
     var x1 = parseInt(keyPointData[i - 1].x);
     var y1 = parseInt(keyPointData[i - 1].y);
     var x2 = parseInt(keyPointData[i].x);
     var y2 = parseInt(keyPointData[i].y);
 
-    var slope = ((y2 - y1) / y1) / ((x2 - x1) / (365 * 7200)) * 100;
+    var slope = Math.round(((y2 - y1) / y1) / ((x2 - x1) / (365 * blocksMinedPerDay)) * 10000) / 100;
 
-    text = text.concat(`${keyBlockData[x1]}: ${x1} to ${x2} → ${slope}% grade<br><br> `);
+    tableContents = tableContents.concat(`
+        <tr>
+          <td>${keyBlockData[x1]}</td>
+          <td>${x1.toLocaleString()}</td>
+          <td>${y1.toLocaleString()}</td>
+          <td>${x2.toLocaleString()}</td>
+          <td>${y2.toLocaleString()}</td>
+          <td>${slope}%</td>
+        </tr>
+        `);
   }
-  text = text.concat("\"");
 
   const contents = `
     <!DOCTYPE html>
@@ -246,19 +271,31 @@ function createGraphHTML(data, keyPointData) {
             width: 80vw;
             height: 80vw;
           }
+          table {
+            margin: 0 auto;
+            margin-top: 1vw;
+            border: 1px solid black;
+          }
+          th, td {
+            border: 1px solid black;
+            padding-left: 1vw;
+            padding-right: 1vw;
+            padding-top: 0.35vw;
+            padding-bottom: 0.35vw;
+            text-align: left;
+         }
         </style>
     </head>
     <body>
         <div>
           <canvas id="myChart"></canvas>
-          <p id="slopeText"></p>
+          <table id="myTable">
+            ${tableContents}
+          </table>
         </div>
         <script>
             var ctx = document.getElementById('myChart').getContext('2d');
             var myChart = new Chart(ctx, ${JSON.stringify(chartConfig)});
-
-            document.getElementById('slopeText').innerHTML = ${text};
-
         </script>
     </body>
     </html>
@@ -275,9 +312,9 @@ async function drawGraph(args) {
   [_, keyPoints] = await fetchIssuancePerBlock(args);
   const data = JSON.parse(fs.readFileSync(filename));
 
-  console.log(data);
+  //console.log(data);
 
-  console.log(keyPoints);
+  //console.log(keyPoints);
 
   createGraphHTML(data, keyPoints);
 }
@@ -295,21 +332,21 @@ async function main() {
       },
       beginBlockNum: {
         alias: "beg",
-        default: "4932602",
+        default: "2972000",
         description: "Number of the first block",
         string: false,
         gobal: true
       },
       endBlockNum: {
         alias: "end",
-        default: "5119443",
+        default: "5600000",
         description: "Number of the last block",
         string: false,
         gobal: true
       },
       stride: {
         alias: "s",
-        default: "1000",
+        default: "144000",
         description: "Size of stride between checked blocks",
         string: false,
         gobal: true
