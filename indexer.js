@@ -204,7 +204,7 @@ function createGraphHTML(data, keyPointData) {
       <th>Init Total Issuance</th>
       <th>Final Block</th>
       <th>Final Total Issuance</th>
-      <th>Grade</th>
+      <th>Estimated Inflation</th>
     </tr>
   `;
 
